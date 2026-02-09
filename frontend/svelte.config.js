@@ -17,8 +17,7 @@ const config = {
     }),
     paths: {
       base: '/timeless-jewels'
-    },
-    trailingSlash: 'always'
+    }
   }
 };
 
