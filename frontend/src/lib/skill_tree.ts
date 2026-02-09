@@ -406,7 +406,6 @@ export const constructQuery = (
   result: SearchWithSeed[],
   statusOption: TradeStatusOption = 'online'
 ) => {
-  const max_query_length = MAX_FILTER_LENGTH * MAX_FILTER_GROUPS;
   const final_query: {
     type: string;
     value: { min: number };
