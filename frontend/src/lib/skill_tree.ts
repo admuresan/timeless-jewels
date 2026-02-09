@@ -384,7 +384,7 @@ const tradeStatNames: { [key: number]: { [key: string]: string } } = {
   }
 };
 
-/** Max seeds per "count" filter group (PoE trade site limit). */
+/** Max seeds per 'count' filter group (PoE trade site limit). */
 const MAX_FILTER_LENGTH = 45;
 /** Max number of count groups we can use (4 groups × 45 = 180 seeds max per query). */
 const MAX_FILTER_GROUPS = 4;
@@ -462,8 +462,6 @@ export const constructQuery = (
     // multiple results but within limit: one stat block per conqueror, each with all seeds; selected active
     for (const conq of conquerorNames) {
       const filters: { id: string; value: { min: number; max: number }; disabled?: boolean }[] = [];
-      const slice =
-        conq === conqueror ? result : [];
       const maxFilters = conq === conqueror ? Math.min(result.length, MAX_FILTER_LENGTH) : 0;
       for (let i = 0; i < maxFilters; i++) {
         const r = result[i];
@@ -511,7 +509,7 @@ export interface OpenTradeResult {
 /**
  * Opens Path of Exile trade search in new tab(s). Splits results into chunks of TRADE_SEEDS_PER_TAB (45)
  * so the user sees all matches; if there are more than 45 results, multiple tabs are opened and the
- * UI can show a message (e.g. "Opened N tabs for M results (45 per tab)").
+ * UI can show a message (e.g. 'Opened N tabs for M results (45 per tab)').
  */
 export const openTrade = (
   jewel: number,
