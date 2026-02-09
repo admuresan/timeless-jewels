@@ -32,11 +32,14 @@ jobs:
       - name: Enable corepack
         run: corepack enable
 
-      - name: Lint
+      - name: Install and format
         working-directory: ./frontend
         run: |
           pnpm install
-          pnpm run lint
+          pnpm run format
+      - name: Lint
+        working-directory: ./frontend
+        run: pnpm run lint
 
   test:
     name: Test

@@ -276,7 +276,7 @@ export const formatStats = (translation: Translation, stat: number): string | un
 
   return datum.string
     .replace(/\{0(?::(.*?)d(.*?))\}/, '$1' + finalStat.toString() + '$2')
-    .replace(`{0}`, parseFloat(finalStat.toFixed(2)).toString());
+    .replace('{0}', parseFloat(finalStat.toFixed(2)).toString());
 };
 
 export const baseJewelRadius = 1800;
@@ -432,7 +432,7 @@ export const constructQuery = (
       });
     }
   } else if (result.length > MAX_FILTER_LENGTH) {
-    // Chunk of 46–180: one block per conqueror; selected gets up to 45 (rest handled by additional tabs)
+    // Chunk of 46-180: one block per conqueror; selected gets up to 45 (rest handled by additional tabs)
     const seedsForThisQuery = result.slice(0, MAX_FILTER_LENGTH);
     for (const conq of conquerorNames) {
       const isActive = conq === conqueror;
