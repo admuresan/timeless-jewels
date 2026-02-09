@@ -386,8 +386,6 @@ const tradeStatNames: { [key: number]: { [key: string]: string } } = {
 
 /** Max seeds per 'count' filter group (PoE trade site limit). */
 const MAX_FILTER_LENGTH = 45;
-/** Max number of count groups we can use (4 groups × 45 = 180 seeds max per query). */
-const MAX_FILTER_GROUPS = 4;
 /** Seeds per tab when opening trade (50 requested; PoE allows 45 per count group, we use 45 per tab to stay within 4 groups). */
 export const TRADE_SEEDS_PER_TAB = 45;
 
