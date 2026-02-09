@@ -384,80 +384,115 @@ const tradeStatNames: { [key: number]: { [key: string]: string } } = {
   }
 };
 
-export const constructQuery = (jewel: number, conqueror: string, result: SearchWithSeed[]) => {
-  const max_filter_length = 45;
-  const max_filters = 4;
-  const max_query_length = max_filter_length * max_filters;
-  const final_query = [];
-  const stat = {
-    type: 'count',
-    value: { min: 1 },
-    filters: [],
-    disabled: false
-  };
+/** Max seeds per "count" filter group (PoE trade site limit). */
+const MAX_FILTER_LENGTH = 45;
+/** Max number of count groups we can use (4 groups × 45 = 180 seeds max per query). */
+const MAX_FILTER_GROUPS = 4;
+/** Seeds per tab when opening trade (50 requested; PoE allows 45 per count group, we use 45 per tab to stay within 4 groups). */
+export const TRADE_SEEDS_PER_TAB = 45;
 
-  // single seed case
-  if (result.length == 1) {
-    for (const conq of Object.keys(tradeStatNames[jewel])) {
-      stat.filters.push({
-        id: tradeStatNames[jewel][conq],
-        value: {
-          min: result[0].seed,
-          max: result[0].seed
-        },
-        disabled: conq != conqueror
-      });
-    }
+export type TradeStatusOption = 'online' | 'onlineinleague' | 'any';
 
-    final_query.push(stat);
-    // too many results case
-  } else if (result.length > max_query_length) {
-    for (let i = 0; i < max_filters; i++) {
+/** Trade type as used by Path of Exile trade site (status.option in query). */
+export const TRADE_STATUS_OPTIONS: { value: TradeStatusOption; label: string }[] = [
+  { value: 'online', label: 'In person (online)' },
+  { value: 'onlineinleague', label: 'In person (online in league)' },
+  { value: 'any', label: 'Any (includes async / instant buyout)' }
+];
+
+export const constructQuery = (
+  jewel: number,
+  conqueror: string,
+  result: SearchWithSeed[],
+  statusOption: TradeStatusOption = 'online'
+) => {
+  const max_query_length = MAX_FILTER_LENGTH * MAX_FILTER_GROUPS;
+  const final_query: {
+    type: string;
+    value: { min: number };
+    filters: { id: string; value: { min: number; max: number }; disabled?: boolean }[];
+    disabled?: boolean;
+  }[] = [];
+  const conquerorNames = Object.keys(tradeStatNames[jewel]);
+
+  // single seed case: one stat block per conqueror, selected one active
+  if (result.length === 1) {
+    for (const conq of conquerorNames) {
       final_query.push({
         type: 'count',
         value: { min: 1 },
-        filters: [],
-        disabled: i != 0
+        filters: [
+          {
+            id: tradeStatNames[jewel][conq],
+            value: { min: result[0].seed, max: result[0].seed },
+            disabled: conq !== conqueror
+          }
+        ],
+        disabled: conq !== conqueror
       });
     }
-
-    for (const [i, r] of result.slice(0, max_query_length).entries()) {
-      const index = Math.floor(i / max_filter_length);
-
-      final_query[index].filters.push({
-        id: tradeStatNames[jewel][conqueror],
-        value: {
-          min: r.seed,
-          max: r.seed
+  } else if (result.length > MAX_FILTER_LENGTH) {
+    // Chunk of 46–180: one block per conqueror; selected gets up to 45 (rest handled by additional tabs)
+    const seedsForThisQuery = result.slice(0, MAX_FILTER_LENGTH);
+    for (const conq of conquerorNames) {
+      const isActive = conq === conqueror;
+      const filters: { id: string; value: { min: number; max: number }; disabled?: boolean }[] = [];
+      if (isActive) {
+        for (const r of seedsForThisQuery) {
+          filters.push({
+            id: tradeStatNames[jewel][conq],
+            value: { min: r.seed, max: r.seed }
+          });
         }
+      } else {
+        filters.push({
+          id: tradeStatNames[jewel][conq],
+          value: { min: 0, max: 0 },
+          disabled: true
+        });
+      }
+      final_query.push({
+        type: 'count',
+        value: { min: 1 },
+        filters,
+        disabled: !isActive
       });
     }
   } else {
-    for (const conq of Object.keys(tradeStatNames[jewel])) {
-      stat.disabled = conq != conqueror;
-
-      for (const r of result) {
-        stat.filters.push({
+    // multiple results but within limit: one stat block per conqueror, each with all seeds; selected active
+    for (const conq of conquerorNames) {
+      const filters: { id: string; value: { min: number; max: number }; disabled?: boolean }[] = [];
+      const slice =
+        conq === conqueror ? result : [];
+      const maxFilters = conq === conqueror ? Math.min(result.length, MAX_FILTER_LENGTH) : 0;
+      for (let i = 0; i < maxFilters; i++) {
+        const r = result[i];
+        filters.push({
           id: tradeStatNames[jewel][conq],
-          value: {
-            min: r.seed,
-            max: r.seed
-          }
+          value: { min: r.seed, max: r.seed },
+          disabled: false
         });
       }
-
-      if (stat.filters.length > max_filter_length) {
-        stat.filters = stat.filters.slice(0, max_filter_length);
+      if (conq !== conqueror) {
+        filters.push({
+          id: tradeStatNames[jewel][conq],
+          value: { min: 0, max: 0 },
+          disabled: true
+        });
       }
-
-      final_query.push(stat);
+      final_query.push({
+        type: 'count',
+        value: { min: 1 },
+        filters,
+        disabled: conq !== conqueror
+      });
     }
   }
 
   return {
     query: {
       status: {
-        option: 'online'
+        option: statusOption
       },
       stats: final_query
     },
@@ -467,13 +502,25 @@ export const constructQuery = (jewel: number, conqueror: string, result: SearchW
   };
 };
 
+export interface OpenTradeResult {
+  tabsOpened: number;
+  totalResults: number;
+  perTab: number;
+}
+
+/**
+ * Opens Path of Exile trade search in new tab(s). Splits results into chunks of TRADE_SEEDS_PER_TAB (45)
+ * so the user sees all matches; if there are more than 45 results, multiple tabs are opened and the
+ * UI can show a message (e.g. "Opened N tabs for M results (45 per tab)").
+ */
 export const openTrade = (
   jewel: number,
   conqueror: string,
   results: SearchWithSeed[],
   platform: string,
-  league: string
-) => {
+  league: string,
+  statusOption: TradeStatusOption = 'online'
+): OpenTradeResult => {
   if (!platform || typeof platform !== 'string') {
     platform = 'PC';
   }
@@ -482,12 +529,24 @@ export const openTrade = (
     league = 'Standard';
   }
 
-  const url = new URL(
-    `https://www.pathofexile.com/trade/search${platform === 'PC' ? '' : `/${platform.toLowerCase()}`}/${league}`
-  );
-  url.searchParams.set('q', JSON.stringify(constructQuery(jewel, conqueror, results)));
+  const baseUrl = `https://www.pathofexile.com/trade/search${platform === 'PC' ? '' : `/${platform.toLowerCase()}`}/${league}`;
+  const perTab = TRADE_SEEDS_PER_TAB;
+  const chunks: SearchWithSeed[][] = [];
 
-  console.log('opening trade', url);
+  for (let i = 0; i < results.length; i += perTab) {
+    chunks.push(results.slice(i, i + perTab));
+  }
 
-  window.open(url, '_blank');
+  for (const chunk of chunks) {
+    const query = constructQuery(jewel, conqueror, chunk, statusOption);
+    const url = new URL(baseUrl);
+    url.searchParams.set('q', JSON.stringify(query));
+    window.open(url, '_blank');
+  }
+
+  return {
+    tabsOpened: chunks.length,
+    totalResults: results.length,
+    perTab
+  };
 };

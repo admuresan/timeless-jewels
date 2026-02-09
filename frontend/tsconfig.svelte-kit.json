@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "target": "ESNext",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "paths": {
+      "$lib": ["./src/lib"],
+      "$lib/*": ["./src/lib/*"],
+      "$app/*": ["./.svelte-kit/app/*"],
+      "$app/env": ["./.svelte-kit/app/env"],
+      "$app/forms": ["./.svelte-kit/app/forms"],
+      "$app/navigation": ["./.svelte-kit/app/navigation"],
+      "$app/paths": ["./.svelte-kit/app/paths"],
+      "$app/stores": ["./.svelte-kit/app/stores"]
+    },
+    "rootDirs": [".", ".svelte-kit/types"]
+  },
+  "include": ["./src/**/*.js", "./src/**/*.ts", "./src/**/*.svelte", ".svelte-kit/types/**/*.d.ts"],
+  "exclude": ["./node_modules"]
+}

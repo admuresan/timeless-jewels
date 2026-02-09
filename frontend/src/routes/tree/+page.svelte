@@ -4,7 +4,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import type { Node } from '../../lib/skill_tree_types';
-  import { getAffectedNodes, skillTree, translateStat, openTrade } from '../../lib/skill_tree';
+  import { getAffectedNodes, skillTree, translateStat, openTrade, TRADE_STATUS_OPTIONS, TRADE_SEEDS_PER_TAB } from '../../lib/skill_tree';
   import { syncWrap } from '../../lib/worker';
   import { proxy } from 'comlink';
   import type { ReverseSearchConfig, StatConfig } from '../../lib/skill_tree';
@@ -448,6 +448,13 @@
   let platform = platforms.find((p) => p.value === localStorage.getItem('platform')) || platforms[0];
   $: localStorage.setItem('platform', platform.value);
 
+  const tradeTypeKey = 'tradeType';
+  let tradeType = TRADE_STATUS_OPTIONS.find((o) => o.value === localStorage.getItem(tradeTypeKey)) || TRADE_STATUS_OPTIONS[0];
+  $: localStorage.setItem(tradeTypeKey, tradeType.value);
+
+  let tradeMessage = '';
+  const clearTradeMessage = () => (tradeMessage = '');
+
   let leagues: { value: string; label: string }[] = [];
   let league: { value: string; label: string } | undefined;
   const getLeagues = async () => {
@@ -500,9 +507,21 @@
               {#if results}
                 <Select items={leagues} bind:value={league} on:change={updateUrl} clearable={false} />
                 <Select items={platforms} bind:value={platform} on:change={updateUrl} clearable={false} />
+                <Select items={TRADE_STATUS_OPTIONS} bind:value={tradeType} on:change={updateUrl} clearable={false} />
+                {#if searchResults && searchResults.raw.length > TRADE_SEEDS_PER_TAB}
+                  <span class="text-xs text-neutral-400 self-center" title="Path of Exile trade site allows 45 seeds per search. Extra tabs will open for the rest.">
+                    {searchResults.raw.length} results → {Math.ceil(searchResults.raw.length / TRADE_SEEDS_PER_TAB)} tab(s)
+                  </span>
+                {/if}
                 <button
                   class="p-1 px-3 bg-blue-500/40 rounded disabled:bg-blue-900/40"
-                  on:click={() => openTrade(searchJewel, searchConqueror, searchResults.raw, platform.value, league.value)}
+                  on:click={() => {
+                    const r = openTrade(searchJewel, searchConqueror, searchResults.raw, platform.value, league.value, tradeType.value);
+                    if (r.tabsOpened > 1) {
+                      tradeMessage = `Opened ${r.tabsOpened} tabs for ${r.totalResults} results (${r.perTab} per tab).`;
+                      setTimeout(clearTradeMessage, 6000);
+                    }
+                  }}
                   disabled={!searchResults}>
                   Trade
                 </button>
@@ -703,8 +722,11 @@
           {/if}
         {/if}
 
+        {#if tradeMessage}
+          <p class="text-sm text-amber-400 mt-2">{tradeMessage}</p>
+        {/if}
         {#if searchResults && results}
-          <SearchResults {searchResults} {groupResults} {highlight} jewel={searchJewel} conqueror={searchConqueror} platform={platform.value} league={league.value} />
+          <SearchResults {searchResults} {groupResults} {highlight} jewel={searchJewel} conqueror={searchConqueror} platform={platform.value} league={league.value} tradeType={tradeType.value} />
         {/if}
       </div>
     </div>
